@@ -7,9 +7,11 @@ Phase 2; Scene/Storyboard in Phase 3; NarrationResult in Phase 4.
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+SUPPORTED_CONCEPTS = {"ph_scale", "covalent_bonds", "ionic_vs_covalent"}
 
 
 class JobStatus(str, Enum):
@@ -68,3 +70,30 @@ class JobDetail(BaseModel):
     steps: list[str]
     error: Optional[str] = None
     artifact_url: str
+
+
+class Scene(BaseModel):
+    heading: str
+    visual_type: Literal["title", "ph_scale", "atom_sharing", "comparison_table", "summary"]
+    visual_text: str
+    narration: str
+
+
+class Storyboard(BaseModel):
+    title: str
+    concept: str
+    scenes: list[Scene] = Field(min_length=3, max_length=6)
+
+    @field_validator("title")
+    @classmethod
+    def title_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("title must not be empty")
+        return v
+
+    @field_validator("concept")
+    @classmethod
+    def concept_supported(cls, v: str) -> str:
+        if v not in SUPPORTED_CONCEPTS:
+            raise ValueError(f"unsupported concept: {v!r}")
+        return v
