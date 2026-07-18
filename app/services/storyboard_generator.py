@@ -74,7 +74,10 @@ def _covalent_bonds_storyboard() -> Storyboard:
                 heading="Sharing, Not Taking",
                 visual_type="title",
                 visual_text="Covalent Bonds",
-                narration="Atoms form covalent bonds by sharing electrons with each other.",
+                narration=(
+                    "Atoms form covalent bonds by sharing pairs of electrons with "
+                    "each other, rather than fully giving them away."
+                ),
             ),
             Scene(
                 heading="A More Stable Configuration",
@@ -82,7 +85,8 @@ def _covalent_bonds_storyboard() -> Storyboard:
                 visual_text="Atom A -- shared electron pair -- Atom B",
                 narration=(
                     "Sharing electrons generally helps atoms reach a more stable "
-                    "electron configuration."
+                    "electron configuration in their outer shell, similar to how "
+                    "noble gases are already stable on their own."
                 ),
             ),
             Scene(
@@ -90,15 +94,20 @@ def _covalent_bonds_storyboard() -> Storyboard:
                 visual_type="atom_sharing",
                 visual_text="H : H (one shared electron pair)",
                 narration=(
-                    "For example, two hydrogen atoms can share one pair of electrons "
-                    "to form a stable H2 molecule."
+                    "For example, two hydrogen atoms can each share one electron, "
+                    "forming a single shared pair between them. This shared pair "
+                    "holds the two atoms together, creating a stable H2 molecule."
                 ),
             ),
             Scene(
                 heading="Where Covalent Bonds Form",
                 visual_type="summary",
                 visual_text="Typically between nonmetal atoms.",
-                narration="Covalent bonds often form between nonmetal atoms.",
+                narration=(
+                    "Covalent bonds typically form between nonmetal atoms, such as "
+                    "carbon, oxygen, nitrogen, and hydrogen. Water, carbon dioxide, "
+                    "and methane are everyday molecules held together by covalent bonds."
+                ),
             ),
         ],
     )
