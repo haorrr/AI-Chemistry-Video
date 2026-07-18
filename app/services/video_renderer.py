@@ -108,8 +108,19 @@ def render_video(job_id: str, storyboard: Storyboard, narration: NarrationResult
         final = combined_video.with_audio(audio_clip)
         opened_clips.append(final)
 
+        # temp_audiofile_path must be set explicitly: MoviePy's default (cwd-relative,
+        # named from just the target's basename) collides across concurrent renders,
+        # since every job's temp video file shares the same basename ("video.tmp.mp4")
+        # — only the parent directory differs. Confirmed via a real concurrent-render
+        # run (run_demo.py, semaphore=2): both jobs wrote to the identical relative
+        # temp audio path and raced on deleting it (Windows PermissionError).
         final.write_videofile(
-            str(tmp_path), fps=24, codec="libx264", audio_codec="aac", logger=None
+            str(tmp_path),
+            fps=24,
+            codec="libx264",
+            audio_codec="aac",
+            temp_audiofile_path=str(tmp_path.parent),
+            logger=None
         )
     finally:
         for c in opened_clips:
