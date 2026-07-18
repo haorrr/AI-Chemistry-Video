@@ -25,6 +25,7 @@ from app.config import ARTIFACTS_DIR
 from app.models import NarrationResult, Scene, Storyboard
 from app.services import artifact_store, audio_service
 from app.services.audio_service import NarrationGenerationError, generate_narration
+from app.services.storyboard_generator import generate_storyboard
 
 
 @pytest.fixture(autouse=True)
@@ -150,23 +151,25 @@ def test_generate_narration_happy_path_returns_valid_result(monkeypatch, tiny_au
     assert result.combined_path.stat().st_size > 0
 
 
-# --- one real, unmocked edge-tts network call proving the real pipeline works ----
+# --- real, unmocked edge-tts network calls against REAL storyboards --------------
 
 
-def test_generate_narration_real_edge_tts_end_to_end():
-    """Real network call to edge-tts (no mocking) — proves the actual TTS + MoviePy
-    concatenation pipeline produces a valid narration.mp3 with correct scene count.
-    Storyboard requires >=3 scenes (model validation), so this can't be a true
-    single-scene test; short narration text keeps it fast regardless.
+@pytest.mark.parametrize("concept", ["ph_scale", "covalent_bonds", "ionic_vs_covalent"])
+def test_generate_narration_real_edge_tts_end_to_end(concept):
+    """Real network call to edge-tts (no mocking) against an actual chemistry
+    storyboard (not synthetic placeholder text) — proves the real TTS + MoviePy
+    concatenation pipeline produces a valid narration.mp3 with correct scene count
+    for all 3 required concepts, matching the phase's "at least one real storyboard"
+    success criterion literally rather than via a stand-in.
     """
     job_id = str(uuid.uuid4())
     artifact_store.create_job_directory(job_id)
-    storyboard = _make_storyboard(3)
+    storyboard = generate_storyboard(concept)
 
     result = asyncio.run(generate_narration(job_id, storyboard))
 
     assert result.engine_used == "edge-tts"
-    assert len(result.scene_durations) == 3
+    assert len(result.scene_durations) == len(storyboard.scenes)
     assert all(d > 0 for d in result.scene_durations)
     assert result.combined_path.is_file()
     assert result.combined_path.stat().st_size > 0
@@ -256,6 +259,88 @@ def test_generate_narration_edge_tts_retry_succeeds_without_falling_back(
     assert result.engine_used == "edge-tts"
     assert len(pyttsx3_calls) == 0  # fallback never triggered
     assert len(result.scene_durations) == 3
+
+
+# --- corrupt-but-nonempty output must not silently pass acceptance --------------
+
+
+def test_generate_narration_corrupt_edge_tts_output_triggers_pyttsx3_fallback(
+    monkeypatch, tiny_audio_fixtures
+):
+    """A corrupt-but-nonempty edge-tts output (passes the size>0 check) must still
+    be caught by duration validation inside _synth_edge_tts and treated as an
+    edge-tts failure -> full pyttsx3 fallback, not a raw exception leaking out of
+    generate_narration."""
+
+    class CorruptCommunicate:
+        def __init__(self, text: str, voice: str | None = None, **kwargs) -> None:
+            pass
+
+        async def save(self, out_path) -> None:
+            Path(out_path).write_bytes(b"\x00\x01\x02\x03")  # nonempty, not real audio
+
+    monkeypatch.setattr(audio_service.edge_tts, "Communicate", CorruptCommunicate)
+    monkeypatch.setattr(audio_service, "_RETRY_BACKOFF_SECONDS", (0.01, 0.01))
+    pyttsx3_calls = _patch_pyttsx3_always_succeeds(monkeypatch, tiny_audio_fixtures["wav"])
+
+    job_id = str(uuid.uuid4())
+    artifact_store.create_job_directory(job_id)
+    storyboard = _make_storyboard(3)
+
+    result = asyncio.run(generate_narration(job_id, storyboard))
+
+    assert result.engine_used == "pyttsx3"
+    assert len(pyttsx3_calls) == 3
+    assert result.combined_path.is_file()
+    assert result.combined_path.stat().st_size > 0
+
+
+def test_generate_narration_corrupt_pyttsx3_output_raises_error(monkeypatch):
+    """A corrupt-but-nonempty pyttsx3/transcode output must not silently succeed —
+    there's no third engine to fall back to, so it must surface as
+    NarrationGenerationError."""
+    _patch_edge_tts_always_fails(monkeypatch)
+
+    def fake_synth_pyttsx3(text: str, out_path_wav: Path) -> None:
+        Path(out_path_wav).write_bytes(b"\x00\x01\x02\x03")  # nonempty, not real audio
+
+    monkeypatch.setattr(audio_service, "_synth_pyttsx3", fake_synth_pyttsx3)
+
+    job_id = str(uuid.uuid4())
+    artifact_store.create_job_directory(job_id)
+    storyboard = _make_storyboard(3)
+
+    with pytest.raises(NarrationGenerationError):
+        asyncio.run(generate_narration(job_id, storyboard))
+
+
+# --- atomic final write -----------------------------------------------------------
+
+
+def test_generate_narration_leaves_no_leftover_tmp_file(monkeypatch, tiny_audio_fixtures):
+    _patch_edge_tts_always_succeeds(monkeypatch, tiny_audio_fixtures["mp3"])
+
+    job_id = str(uuid.uuid4())
+    artifact_store.create_job_directory(job_id)
+    storyboard = _make_storyboard(3)
+
+    result = asyncio.run(generate_narration(job_id, storyboard))
+
+    tmp_path = result.combined_path.with_name(result.combined_path.stem + ".tmp.mp3")
+    assert not tmp_path.exists()
+
+
+# --- blocking-work timeout wrapper -------------------------------------------------
+
+
+def test_run_blocking_respects_timeout():
+    def slow_func() -> None:
+        import time
+
+        time.sleep(0.5)
+
+    with pytest.raises(asyncio.TimeoutError):
+        asyncio.run(audio_service._run_blocking(slow_func, timeout=0.05))
 
 
 # --- _tmp_audio cleanup ---------------------------------------------------------
