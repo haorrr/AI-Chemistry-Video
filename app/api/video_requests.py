@@ -1,11 +1,13 @@
-"""Video request endpoints. Create/list/detail implemented here (Phase 2);
-artifact retrieval added in Phase 6. HTTP concerns only — business logic
-lives in job_service/topic_registry."""
+"""Video request endpoints. HTTP concerns only — business logic lives in
+job_service/topic_registry/pipeline_service."""
 
-from fastapi import APIRouter, HTTPException, Response
+import asyncio
 
-from app.models import JobDetail, JobListItem, VideoRequestCreate, VideoRequestResponse
-from app.services import job_service, topic_registry
+from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi.responses import FileResponse
+
+from app.models import JobDetail, JobListItem, JobStatus, VideoRequestCreate, VideoRequestResponse
+from app.services import job_service, pipeline_service, topic_registry
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -17,7 +19,7 @@ def _artifact_url(job_id: str) -> str:
 
 
 @router.post("/video-requests", response_model=VideoRequestResponse, status_code=202)
-async def create_video_request(body: VideoRequestCreate, response: Response):
+async def create_video_request(body: VideoRequestCreate, request: Request, response: Response):
     resolved = topic_registry.resolve_concept(body.query)
     if resolved is None:
         raise HTTPException(
@@ -29,6 +31,11 @@ async def create_video_request(body: VideoRequestCreate, response: Response):
         )
     canonical_query, concept = resolved
     job = job_service.create_job(canonical_query, concept)
+
+    task = asyncio.create_task(pipeline_service.run_job(job.job_id))
+    request.app.state.background_tasks.add(task)
+    task.add_done_callback(request.app.state.background_tasks.discard)
+
     response.headers["Location"] = f"/video-requests/{job.job_id}"
     logger.info(f"Video request created: job_id={job.job_id} concept={concept}")
     return VideoRequestResponse(
@@ -72,3 +79,20 @@ async def get_video_request(job_id: str):
         error=job.error,
         artifact_url=_artifact_url(job.job_id),
     )
+
+
+@router.get("/video-requests/{job_id}/artifact")
+async def get_video_artifact(job_id: str):
+    job = job_service.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    if job.status == JobStatus.failed:
+        raise HTTPException(status_code=409, detail={"status": "failed", "error": job.error})
+    if job.status != JobStatus.completed:
+        raise HTTPException(status_code=409, detail={"status": job.status})
+    if job.artifact_path is None or not job.artifact_path.exists():
+        raise HTTPException(
+            status_code=500,
+            detail="Job metadata says completed but the artifact file is missing.",
+        )
+    return FileResponse(job.artifact_path, media_type="video/mp4")

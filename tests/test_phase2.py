@@ -4,6 +4,14 @@ Job store is a module-level in-memory dict shared across the whole test session,
 so every test resets it via the `reset_job_store` autouse fixture for isolation.
 Any artifacts/{job_id}/ directories created during a test are removed by the
 `cleanup_artifacts` autouse fixture so the repo's artifacts/ dir stays clean.
+
+Since Phase 6, POST /video-requests triggers a real background pipeline
+(asyncio.create_task running pipeline_service.run_job). This file tests the
+API/model/registry layer in isolation from that pipeline (real end-to-end
+pipeline behavior is Phase 6's own test suite's job) — the `stub_pipeline`
+autouse fixture stubs the trigger to a no-op so these tests stay fast and
+deterministic, and so the app's lifespan shutdown (which drains in-flight
+background tasks) doesn't block each test on a real ~8-10s render.
 """
 
 import re
@@ -17,6 +25,14 @@ from app.main import app
 from app.services import job_service, topic_registry
 
 LOCATION_RE = re.compile(r"^/video-requests/([0-9a-fA-F-]{36})$")
+
+
+@pytest.fixture(autouse=True)
+def stub_pipeline(monkeypatch):
+    async def noop_run_job(job_id):
+        return None
+
+    monkeypatch.setattr("app.api.video_requests.pipeline_service.run_job", noop_run_job)
 
 
 @pytest.fixture(autouse=True)
