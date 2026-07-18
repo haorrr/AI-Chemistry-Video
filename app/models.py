@@ -4,6 +4,7 @@ Populated incrementally: JobStatus here (Phase 1); Job/request/response models i
 Phase 2; Scene/Storyboard in Phase 3; NarrationResult in Phase 4.
 """
 
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -97,3 +98,12 @@ class Storyboard(BaseModel):
         if v not in SUPPORTED_CONCEPTS:
             raise ValueError(f"unsupported concept: {v!r}")
         return v
+
+
+@dataclass
+class NarrationResult:
+    """Internal service-to-service data, not an API contract — no Pydantic needed."""
+
+    combined_path: Path
+    scene_durations: list[float]
+    engine_used: str
