@@ -51,10 +51,10 @@ zero ambiguity, greenfield repo, no research/scouting needed).
 |---|-------|--------|
 | 1 | [Phase 1: Project Skeleton & Health Endpoint](./phase-01-start.md) | Completed |
 | 2 | [Phase 2: Job Model, Store, Topic Registry & Core Endpoints](./phase-02-job-model-store-topic-registry-core-endpoints.md) | Completed |
-| 3 | [Phase 3: Storyboard Generation & Validation](./phase-03-storyboard-generation-validation.md) | Completed (reviewed 2026-07-19, 9/10, not yet committed) |
-| 4 | [Phase 4: Audio Narration Service](./phase-04-audio-narration-service.md) | Completed (reviewed 2026-07-19, 8/10, not yet committed) |
-| 5 | [Phase 5: Video Renderer (Slides + MP4 Composition)](./phase-05-video-renderer-slides-mp4-composition.md) | Pending |
-| 6 | [Phase 6: Async Pipeline Wiring & Artifact Endpoint](./phase-06-async-pipeline-wiring-artifact-endpoint.md) | Pending |
+| 3 | [Phase 3: Storyboard Generation & Validation](./phase-03-storyboard-generation-validation.md) | Completed |
+| 4 | [Phase 4: Audio Narration Service](./phase-04-audio-narration-service.md) | Completed |
+| 5 | [Phase 5: Video Renderer (Slides + MP4 Composition)](./phase-05-video-renderer-slides-mp4-composition.md) | Completed |
+| 6 | [Phase 6: Async Pipeline Wiring & Artifact Endpoint](./phase-06-async-pipeline-wiring-artifact-endpoint.md) | Completed |
 | 7 | [Phase 7: Demo Script, Tests & Documentation](./phase-07-demo-script-tests-documentation.md) | Pending |
 
 <!-- Updated: Validation Session 2 - filenames renumbered 01-07 sequentially (PLAN_REVIEW.md #19) -->

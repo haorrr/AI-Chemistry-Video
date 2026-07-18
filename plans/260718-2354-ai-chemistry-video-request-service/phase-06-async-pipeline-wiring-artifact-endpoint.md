@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: "Async Pipeline Wiring & Artifact Endpoint"
-status: pending
+status: completed
 priority: P1
 effort: "3-4h"
 dependencies: [5]
