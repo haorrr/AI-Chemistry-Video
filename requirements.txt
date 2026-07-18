@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+pydantic
+pillow
+moviepy>=2,<3
+edge-tts
+pyttsx3
+python-multipart
+pytest
+httpx
